@@ -4,7 +4,7 @@ package readTest;
  * Created by dell on 2017/11/22.
  */
 public class ReadFactory {
-  static final String ramFolder = "/mnt/ramdisk/";
+  public static final String ramFolder = "/mnt/ramdisk/";
   static final String onDiskFolder = "/home/experiment/huangzhi/zerocopy/ondisk/";
   /*
   总共分为以下几种情况：

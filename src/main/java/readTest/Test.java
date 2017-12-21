@@ -5,6 +5,7 @@ import static readTest.ReadFactory.ramFolder;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.MappedByteBuffer;
 
 /**
  * Created by dell on 2017/11/22.
@@ -32,6 +33,7 @@ public class Test {
   //使用10个1个G的文件进行warmup，实际上差不多读1个G的文件测试就稳定了
   static final String WarmUpDataFormat = "test0%d.data";
 
+  static MappedByteBuffer buffer;
   public Test(String filename, boolean MAP_WHOLE_FILE, String humanReadablePacketSize) {
     this.filename = filename;
     this.MAP_WHOLE_FILE = MAP_WHOLE_FILE;
@@ -51,7 +53,8 @@ public class Test {
     warmup(warmupfileNum, filename, storageType, readMethod, packetSize);
     //生成一个测试对象,这里的测试都是读取mmap完整的文件，后面尝试增加一个测试用例，测试mmap整个文件，和文件的一部分
     //至于mmap一部分还是整个文件的，使用netty的ByteBuf也可以实现
-    testAndSoutRes(filename, storageType, readMethod, packetSize);
+    Read read = testAndSoutRes(filename, storageType, readMethod, packetSize);
+    buffer = (MappedByteBuffer) ((MmapRead)read).getBuffer();
     keepJVMRunning();
   }
 
@@ -78,7 +81,7 @@ public class Test {
     }
   }
   //每次都是读2次，并且输出测试结果
-  private static void testAndSoutRes(String filename, StorageType storageType, ReadMethod readMethod, String packetSize)
+  private static Read testAndSoutRes(String filename, StorageType storageType, ReadMethod readMethod, String packetSize)
       throws IOException {
     Read read = ReadFactory.create(filename, storageType, readMethod, packetSize);
     long beginTime = System.nanoTime();
@@ -89,6 +92,7 @@ public class Test {
     read.readafter1sttime();
     endTime = System.nanoTime();
     System.out.println("read test for " + filename + ", for process " + pid + "for the second time,time:" + (endTime - beginTime) / 1e6 + " ms storageType: " + storageType + " readMethod: " + readMethod +  " packetSize: " + packetSize);
+    return read;
   }
 
   private static boolean checkExists(String filename, StorageType storageType) {

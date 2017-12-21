@@ -17,9 +17,6 @@ import java.text.DecimalFormat;
 public class Test {
    private static final int pid;
 
-
-
-
   private static final long GB = 1024 * 1024 * 1024;
   private static final int size64KB = 64 * 1024;
   private static final long totalTimes = 1024 * 1024 / 64;
@@ -34,7 +31,7 @@ public class Test {
   static {
     int tmpPid = 0;
     try {
-      tmpPid = getCurrentprocessId();
+      tmpPid = getCurrentProcessId();
     } catch (Exception e) {
       System.out.println("cannnot get the pid of the current process");
     }
@@ -49,14 +46,14 @@ public class Test {
        fileNum = Integer.parseInt(args[3]);
        readDataFrom1kbto1gb(dataBuffers, storage, readType, read_size);
 
-    try {
-      while (true) {
-        Thread.sleep(1000);
-        System.out.println("The java process " + pid + "is running" );
-      }
-    } catch (InterruptedException e) {
-      System.out.println("thread has been interruptted!");
-    }
+//    try {
+//      while (true) {
+//        Thread.sleep(1000);
+//        System.out.println("The java process " + pid + "is running" );
+//      }
+//    } catch (InterruptedException e) {
+//      System.out.println("thread has been interruptted!");
+//    }
   }
 
    private static void readDataFrom1kbto1gb(ByteBuffer[] dataBuffers, Type type, ReadType readType, int read_size)
@@ -79,26 +76,11 @@ public class Test {
        } else if (type == Type.ONDISK) {
          getBuffersFromMmap(dataBuffers, onDiskFolder, size);
        }
-       int dataBufferNum = (int) (size / GB);
-       long packetTimes = (size % GB) / size64KB;
-       int modSize = (int) ((size % GB) % size64KB);
-         long beginTime = System.nanoTime();
-         for (int i = 0; i < dataBufferNum; i++) {
-           for (int j = 0; j < totalTimes; j++) {
-             dataBuffers[i].get(resultPacket, 0, size64KB);
-             //dataBuffers[i].slice();
-           }
-         }
-
-         for (int i = 0; i < packetTimes; i++) {
-           dataBuffers[dataBufferNum].get(resultPacket, 0, size64KB);
-         }
-         if (modSize > 0)
-           dataBuffers[dataBufferNum].get(resultPacket, 0, modSize);
-         long endTime = System.nanoTime();
-
-         System.out.println("read data from" + type.toString() + " for process " + pid + " " + convertSizeToHuman(
-             size) + ",time:" + (endTime - beginTime) / 1e6 + " ms" + "readType: " + readType);
+        outputBufferReadTime(size, dataBuffers, type, readType, 1);//for the first time
+       for (ByteBuffer buffer : dataBuffers) {
+         buffer.flip();//重置buffer的位置
+       }
+       outputBufferReadTime(size, dataBuffers, type, readType, 2);
        } else if (readType == ReadType.IO && type != Type.HEAP/*因为heap是没有IO的*/) {
        RandomAccessFile [] rafs = new RandomAccessFile[10];
        if (type == Type.RAMFS) {
@@ -106,28 +88,61 @@ public class Test {
        } else if (type == Type.ONDISK) {
          getRAFFromFolder(rafs, onDiskFolder);
        }
-       int dataBufferNum = (int) (size / GB);
-       long packetTimes = (size % GB) / size64KB;
-       int modSize = (int) ((size % GB) % size64KB);
-       long beginTime = System.nanoTime();
-       for (int i = 0; i < dataBufferNum; i++) {
-         for (int j = 0; j < totalTimes; j++) {
-           rafs[i].read(resultPacket, 0, size64KB);
-         }
-       }
 
-       for (int i = 0; i < packetTimes; i++) {
-         rafs[dataBufferNum].read(resultPacket, 0, size64KB);
+       outputRAFReadTime(size, rafs, type, readType, 1);
+       for(RandomAccessFile raf: rafs) {
+         raf.seek(0);
        }
-       if (modSize > 0)
-         rafs[dataBufferNum].read(resultPacket, 0, modSize);
-       long endTime = System.nanoTime();
-
-       System.out.println("read data from" + type.toString() + " for process " + pid + " " + convertSizeToHuman(
-           size) + ",time:" + (endTime - beginTime) / 1e6 + " ms" + "readType: " + readType);
+       outputRAFReadTime(size, rafs, type, readType, 2);
      }
 
 
+   }
+
+   private static void outputRAFReadTime(int size, RandomAccessFile [] rafs, Type type, ReadType readType, int time)
+       throws IOException {
+     int dataBufferNum = (int) (size / GB);
+     long packetTimes = (size % GB) / size64KB;
+     int modSize = (int) ((size % GB) % size64KB);
+     long beginTime = System.nanoTime();
+     for (int i = 0; i < dataBufferNum; i++) {
+       for (int j = 0; j < totalTimes; j++) {
+         rafs[i].read(resultPacket, 0, size64KB);
+       }
+     }
+
+     for (int i = 0; i < packetTimes; i++) {
+       rafs[dataBufferNum].read(resultPacket, 0, size64KB);
+     }
+     if (modSize > 0)
+       rafs[dataBufferNum].read(resultPacket, 0, modSize);
+     long endTime = System.nanoTime();
+
+     System.out.println("read data from" + type.toString() + " for process " + pid + " for the " + time + " time," + convertSizeToHuman(
+         size) + ",time:" + (endTime - beginTime) / 1e6 + " ms" + "readType: " + readType);
+   }
+
+   private static void outputBufferReadTime(int size, ByteBuffer [] dataBuffers, Type type, ReadType readType, int time) {
+     int dataBufferNum = (int) (size / GB);
+     long packetTimes = (size % GB) / size64KB;
+     int modSize = (int) ((size % GB) % size64KB);
+     long beginTime = System.nanoTime();
+     for (int i = 0; i < dataBufferNum; i++) {
+       for (int j = 0; j < totalTimes; j++) {
+         dataBuffers[i].get(resultPacket, 0, size64KB);
+         //dataBuffers[i].slice();
+       }
+     }
+
+     for (int i = 0; i < packetTimes; i++) {
+       dataBuffers[dataBufferNum].get(resultPacket, 0, size64KB);
+     }
+     if (modSize > 0)
+       dataBuffers[dataBufferNum].get(resultPacket, 0, modSize);
+     long endTime = System.nanoTime();
+
+     System.out.println("read data from" + type.toString() + " for process " + pid + " for the " + time + " time, " + convertSizeToHuman(
+         size) + ",time:" + (endTime - beginTime) / 1e6 + " ms" + "readType: " + readType);
    }
   private static void getRAFFromFolder(RandomAccessFile [] rafs, String folder)
       throws FileNotFoundException {
@@ -185,7 +200,7 @@ public class Test {
        return num * 1024 * 1024 * 1024;
      return num;
    }
-private static int getCurrentprocessId()
+private static int getCurrentProcessId()
     throws NoSuchMethodException, InvocationTargetException, IllegalAccessException,
     NoSuchFieldException {
   java.lang.management.RuntimeMXBean runtime =

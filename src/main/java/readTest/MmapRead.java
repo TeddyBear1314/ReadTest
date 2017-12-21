@@ -5,6 +5,7 @@ import static java.nio.channels.FileChannel.MapMode.READ_ONLY;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 
 /**
@@ -13,17 +14,21 @@ import java.nio.channels.FileChannel;
 public class MmapRead  extends OutputFromBuffer implements Read{
   private String filename;
   private ByteBuffer buffer;
+  private RandomAccessFile dataFile;
+  private FileChannel dataChannel;
   public MmapRead(String filename, String humanReadableSize) {
     super(humanReadableSize);
     this.filename = filename;
   }
 
   public ByteBuffer mmapWholeFile() throws IOException {
-      RandomAccessFile dataFile =
+      dataFile =
           new RandomAccessFile(filename, "r");
-      FileChannel dataChannel = dataFile.getChannel();
+      dataChannel = dataFile.getChannel();
       //实现里面不能超过Integer.MAX_VALUE
-     return dataChannel.map(READ_ONLY, 0, dataFile.length());
+     MappedByteBuffer res = dataChannel.map(READ_ONLY, 0, dataFile.length());
+    System.out.println("is mappedByteBuffer loaded:" + res.isLoaded());
+    return res;
   }
 
   @Override
@@ -34,7 +39,16 @@ public class MmapRead  extends OutputFromBuffer implements Read{
 
   @Override
   public void readafter1sttime() {
-    buffer.flip();
+    buffer.rewind();
     outputBufferReadTime(buffer);
+  }
+
+  public void close() throws IOException {
+    dataChannel.close();
+    dataFile.close();
+  }
+
+  public ByteBuffer getBuffer() {
+    return buffer;
   }
 }

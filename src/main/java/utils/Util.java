@@ -38,7 +38,7 @@ public class Util {
   }
 
   private static double convertBperMstoMBperS(double input) {
-    return input/MB * 1000;//* 250是个trick，因为源文件的size是读了250次的
+    return input/MB * 1000 * 250;//* 250是个trick，因为源文件的size是读了250次的
   }
 
   private static class Input {
